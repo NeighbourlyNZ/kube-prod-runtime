@@ -19,7 +19,7 @@ properties([
   parameters([
     stringParam(name: 'AKS_REL', defaultValue: '1.15,1.16', description: 'AKS releases to test (comma separated)'),
     stringParam(name: 'EKS_REL', defaultValue: '1.14,1.15', description: 'EKS releases to test (comma separated)'),
-    stringParam(name: 'GKE_REL', defaultValue: '1.15,1.16-pre', description: 'GKE releases to test (comma separated)'),
+    stringParam(name: 'GKE_REL', defaultValue: '1.15,1.16', description: 'GKE releases to test (comma separated)'),
     stringParam(name: 'GEN_REL', defaultValue: '1.15', description: 'Generic-cloud releases to test (comma separated)'),
   ])
 ])
@@ -129,7 +129,7 @@ def waitForRollout(String namespace, int rolloutTimeout, int postRollOutSleep) {
                 sh "kubectl --namespace ${namespace} get po,deploy,svc,ing"
                 sh """
                   echo -n "\nFurther debugging info for Pods not-Running in '${namespace}' namespace:"
-                  kubectl --namespace ${namespace} get pod -otemplate -ojsonpath='{..metadata.name} {..status..phase}{"\\n"}' | grep -v Running | awk '{ print \$1 }' | xargs -tI@ sh -xc 'kubectl --namespace ${namespace} describe pod @ | tail -10; kubectl --namespace ${namespace} logs @'
+                  kubectl --namespace ${namespace} get pod --no-headers | grep -v Running | awk '{ print \$1 }' | xargs -tI@ sh -xc 'kubectl --namespace ${namespace} describe pod @ | tail -10; kubectl --namespace ${namespace} logs @'
                 """
                 throw error
             }
@@ -192,7 +192,8 @@ def runIntegrationTest(String description, String kubeprodArgs, String ginkgoArg
 
                 withGo() {
                     dir("${env.WORKSPACE}/src/github.com/bitnami/kube-prod-runtime/tests") {
-                        sh 'go get github.com/onsi/ginkgo/ginkgo'
+                        // NOTE: ginkgo version pinned to the one used in tests/
+                        sh 'env GO111MODULE=on go get github.com/onsi/ginkgo/ginkgo@v1.12.0'
                         try {
                             sh """
                             ginkgo -v \
